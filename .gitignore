@@ -8,6 +8,4 @@
 !/catalog.min.json
 *.sw*
 *-needsbib.txt
-tde-internal
-tde-external
-tde-1980-2025
+gc-stars

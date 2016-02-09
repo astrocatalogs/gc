@@ -31,9 +31,7 @@ eventnames = []
 
 tasks = {
     "internal":       {"update": False},
-    "old-tdefit":     {"update": False},
     "vizier":         {"update": False},
-    "ogle":           {"update": True },
     "writeevents":    {"update": True }
 }
 
@@ -41,9 +39,6 @@ events = OrderedDict()
 
 with open('rep-folders.txt', 'r') as f:
     repfolders = f.read().splitlines()
-
-repyears = [int(repfolders[x][-4:]) for x in range(len(repfolders))]
-repyears[0] -= 1
 
 typereps = {
     'I P':    ['I pec', 'I-pec', 'I Pec', 'I-Pec'],
@@ -313,7 +308,7 @@ def add_quanta(name, quanta, value, sources, forcereplacebetter = False, error =
             if svalue in typereps[rep]:
                 svalue = rep
                 break
-    elif quanta == 'snra' or quanta == 'sndec' or quanta == 'galra' or quanta == 'galdec':
+    elif quanta == 'ra' or quanta == 'dec' or quanta == 'galra' or quanta == 'galdec':
         if unit == 'decdeg' or unit == 'radeg':
             deg = float('%g' % Decimal(svalue))
             sig = get_sig_digits(svalue)
@@ -549,14 +544,7 @@ def write_all_events(empty = False):
 
         jsonstring = json.dumps({name:events[name]}, indent='\t', separators=(',', ':'), ensure_ascii=False)
 
-        outdir = '../'
-        if 'discoveryear' in events[name]:
-            for r, year in enumerate(repyears):
-                if int(events[name]['discoveryear'][0]['value']) <= year:
-                    outdir += repfolders[r]
-                    break
-        else:
-            outdir += str(repfolders[0])
+        outdir = '../gc-stars'
 
         f = codecs.open(outdir + '/' + filename + '.json', 'w', encoding='utf8')
         f.write(jsonstring)
@@ -641,225 +629,30 @@ if 'writeevents' in tasks:
         delete_old_event_files()
 
 # Import data provided directly to OSC
-if do_task('internal'):
-    for datafile in sorted(glob.glob("../tde-internal/*.json"), key=lambda s: s.lower()):
-        if not load_event_from_file(location = datafile, clean = True, delete = False):
-            raise IOError('Failed to find specified file.')
-    journal_events()
-
-if do_task('old-tdefit'):
-    oldbanddict = {
-        "Pg": {"instrument":"Pan-STARRS1", "band":"g"},
-        "Pr": {"instrument":"Pan-STARRS1", "band":"r"},
-        "Pi": {"instrument":"Pan-STARRS1", "band":"i"},
-        "Pz": {"instrument":"Pan-STARRS1", "band":"z"},
-        "Mu": {"instrument":"MegaCam",     "band":"u"},
-        "Mg": {"instrument":"MegaCam",     "band":"g"},
-        "Mr": {"instrument":"MegaCam",     "band":"r"},
-        "Mi": {"instrument":"MegaCam",     "band":"i"},
-        "Mz": {"instrument":"MegaCam",     "band":"z"},
-        "Su": {"instrument":"SDSS",        "band":"u"},
-        "Sg": {"instrument":"SDSS",        "band":"g"},
-        "Sr": {"instrument":"SDSS",        "band":"r"},
-        "Si": {"instrument":"SDSS",        "band":"i"},
-        "Sz": {"instrument":"SDSS",        "band":"z"},
-        "bU": {"instrument":"Bessel",      "band":"U"},
-        "bB": {"instrument":"Bessel",      "band":"B"},
-        "bV": {"instrument":"Bessel",      "band":"V"},
-        "bR": {"instrument":"Bessel",      "band":"R"},
-        "bI": {"instrument":"Bessel",      "band":"I"},
-        "4g": {"instrument":"PTF 48-Inch", "band":"g"},
-        "4r": {"instrument":"PTF 48-Inch", "band":"r"},
-        "6g": {"instrument":"PTF 60-Inch", "band":"g"},
-        "6r": {"instrument":"PTF 60-Inch", "band":"r"},
-        "6i": {"instrument":"PTF 60-Inch", "band":"i"},
-        "Uu": {"instrument":"UVOT",        "band":"U"},
-        "Ub": {"instrument":"UVOT",        "band":"B"},
-        "Uv": {"instrument":"UVOT",        "band":"V"},
-        "Um": {"instrument":"UVOT",        "band":"M2"},
-        "U1": {"instrument":"UVOT",        "band":"W1"},
-        "U2": {"instrument":"UVOT",        "band":"W2"},
-        "GN": {"instrument":"GALEX",       "band":"NUV"},
-        "GF": {"instrument":"GALEX",       "band":"FUV"},
-        "CR": {"instrument":"Clear",       "band":"r"  },
-        "RO": {"instrument":"ROTSE"                    },
-        "X1": {"instrument":"Chandra"                  },
-        "X2": {"instrument":"XRT"                      },
-        "Xs": {"instrument":"XRT",         "band":"soft"},
-        "Xm": {"instrument":"XRT",         "band":"hard"},
-        "XM": {"instrument":"XMM"                      }
-    }
-    for file in sorted(glob.glob("../tde-external/old-tdefit/*.dat"), key=lambda s: s.lower()):
-        f = open(file,'r')
-        tsvin = csv.reader(f, delimiter='\t', skipinitialspace=True)
-
-        source = ''
-        yrsmjdoffset = 0.
-        for row in tsvin:
-            if row[0] == 'name':
-                name = re.sub('<[^<]+?>', '', row[1].split(',')[0].strip())
-                name = add_event(name)
-            elif row[0] == 'citations':
-                citarr = row[1].split(',')
-                for cite in citarr:
-                    if '*' in cite:
-                        source = get_source(name, reference = cite.strip())
-            elif row[0] == 'nhcorr':
-                hostnhcorr = True if row[1] == 'T' else False
-            elif row[0] == 'restframe':
-                restframe = True if row[1] == 'T' else False
-            elif row[0] == 'yrsmjdoffset':
-                yrsmjdoffset = float(row[1])
-            if row[0] == 'redshift':
-                redshift = float(row[1].split(',')[0].strip(' *'))
-
-        f.seek(0)
-
-        for row in tsvin:
-            if row[0] == 'redshift':
-                add_quanta(name, 'redshift', row[1], source)
-            elif row[0] == 'host':
-                add_quanta(name, 'host', row[1], source)
-            elif row[0] == 'claimedtype':
-                add_quanta(name, 'claimedtype', row[1], source)
-            elif row[0] == 'citations':
-                add_quanta(name, 'citations', row[1], source)
-            elif row[0] == 'notes':
-                add_quanta(name, 'notes', row[1], source)
-            elif row[0] == 'nh':
-                add_quanta(name, 'nh', row[1], source)
-            elif row[0] == 'photometry':
-                if yrsmjdoffset == 0.:
-                    timeunit = row[1]
-                    time = row[2]
-                    lrestframe = restframe
-                else:
-                    timeunit = 'MJD'
-                    if restframe:
-                        # Currently presume only the time, not the flux, has been affected by redshifting.
-                        time = str(yrsmjdoffset + float(row[2])*365.25*(1.0 + redshift))
-                    else:
-                        time = str(yrsmjdoffset + float(row[2])*365.25)
-                    lrestframe = False
-                instrument = ''
-                iband = row[3]
-                if iband in oldbanddict:
-                    if 'band' in oldbanddict[iband]:
-                        band = oldbanddict[iband]['band']
-                    if 'instrument' in oldbanddict[iband]:
-                        instrument = oldbanddict[iband]['instrument']
-                else:
-                    band = iband
-                upperlimit = True if row[6] == '1' else False
-                if 'X' in iband:
-                    counts = row[4]
-                    e_counts = row[5] if float(row[5]) != 0.0 else ''
-                    add_photometry(name, time = time, timeunit = timeunit, band = band, counts = counts, e_counts = e_counts,
-                            upperlimit = upperlimit, restframe = lrestframe, hostnhcorr = hostnhcorr, instrument = instrument, source = source)
-                else:
-                    magnitude = row[4]
-                    e_magnitude = row[5] if float(row[5]) != 0.0 else ''
-                    add_photometry(name, time = time, timeunit = timeunit, band = band, magnitude = magnitude, e_magnitude = e_magnitude,
-                            upperlimit = upperlimit, restframe = lrestframe, hostnhcorr = hostnhcorr, instrument = instrument, source = source)
+#if do_task('internal'):
+#    for datafile in sorted(glob.glob("../tde-internal/*.json"), key=lambda s: s.lower()):
+#        if not load_event_from_file(location = datafile, clean = True, delete = False):
+#            raise IOError('Failed to find specified file.')
+#    journal_events()
 
 # Import primary data sources from Vizier
 if do_task('vizier'):
     Vizier.ROW_LIMIT = -1
     # VizieR imports go here
 
-    #journal_events()
-
-if do_task('ogle'): 
-    basenames = ['transients']
-    oglenames = []
-    ogleupdate = [True]
-    for b, bn in enumerate(basenames):
-        if args.update and not ogleupdate[b]:
-            continue
-        response = urllib.request.urlopen('http://ogle.astrouw.edu.pl/ogle4/' + bn + '/transients.html')
-        soup = BeautifulSoup(response.read(), "html5lib")
-        links = soup.findAll('a')
-        breaks = soup.findAll('br')
-        datalinks = []
-        for a in links:
-            if a.has_attr('href'):
-                if '.dat' in a['href']:
-                    datalinks.append('http://ogle.astrouw.edu.pl/ogle4/' + bn + '/' + a['href'])
-
-        ec = -1
-        reference = 'OGLE-IV Transient Detection System'
-        refurl = 'http://ogle.astrouw.edu.pl/ogle4/transients/transients.html'
-        for br in breaks:
-            sibling = br.nextSibling
-            if 'Ra,Dec=' in sibling:
-                line = sibling.replace("\n", '').split('Ra,Dec=')
-                name = line[0].strip()
-                ec += 1
-
-                if name in oglenames:
-                    continue
-                oglenames.append(name)
-
-                mySibling = sibling.nextSibling
-                atelref = ''
-                claimedtype = ''
-                while 'Ra,Dec=' not in mySibling:
-                    if isinstance(mySibling, Tag):
-                        atela = mySibling
-                        if atela and atela.has_attr('href') and 'astronomerstelegram' in atela['href']:
-                            atelref = atela.contents[0].strip()
-                            atelurl = atela['href']
-                            if 'TDE' in atela.contents[0]:
-                                claimedtype = 'TDE'
-                    mySibling = mySibling.nextSibling
-                    if mySibling is None:
-                        break
-
-                if claimedtype != 'TDE':
-                    continue
-                name = add_event(name)
-
-                nextSibling = sibling.nextSibling
-                if isinstance(nextSibling, Tag) and nextSibling.has_attr('alt') and nextSibling.contents[0].strip() != 'NED':
-                    radec = nextSibling.contents[0].strip().split()
-                else:
-                    radec = line[-1].split()
-                ra = radec[0]
-                dec = radec[1]
-                lcresponse = urllib.request.urlopen(datalinks[ec])
-                lcdat = lcresponse.read().decode('utf-8').splitlines()
-                sources = [get_source(name, reference = reference, url = refurl)]
-                if atelref and atelref != 'ATel#----':
-                    sources.append(get_source(name, reference = atelref, url = atelurl))
-                sources = ','.join(sources)
-
-                if name[:4] == 'OGLE':
-                    if name[4] == '-':
-                        if is_number(name[5:9]):
-                            add_quanta(name, 'discoveryear', name[5:9], sources)
-                    else:
-                        if is_number(name[4:6]):
-                            add_quanta(name, 'discoveryear', '20' + name[4:6], sources)
-
-                add_quanta(name, 'snra', ra, sources)
-                add_quanta(name, 'sndec', dec, sources)
-                if claimedtype and claimedtype != '-':
-                    add_quanta(name, 'claimedtype', claimedtype, sources)
-                elif 'SN' not in name and 'claimedtype' not in events[name]:
-                    add_quanta(name, 'claimedtype', 'Candidate', sources)
-                for row in lcdat:
-                    row = row.split()
-                    mjd = str(jd_to_mjd(Decimal(row[0])))
-                    magnitude = row[1]
-                    if float(magnitude) > 90.0:
-                        continue
-                    e_magnitude = row[2]
-                    upperlimit = False
-                    if e_magnitude == '-1' or float(e_magnitude) > 10.0:
-                        e_magnitude = ''
-                        upperlimit = True
-                    add_photometry(name, time = mjd, band = 'I', magnitude = magnitude, e_magnitude = e_magnitude, source = sources, upperlimit = upperlimit)
-        journal_events()
+    # 2010ApJ...725..331Y
+    result = Vizier.get_catalogs("J/ApJ/725/331/table7")
+    table = result[list(result.keys())[0]]
+    table.convert_bytestring_to_unicode(python3_only=True)
+    for row in table:
+        name = row['Name']
+        name = add_event(name)
+        source = get_source(name, bibcode = '2010ApJ...725..331Y')
+        add_quanta(name, 'ra', str(row['_RA']), source, unit = 'radeg')
+        add_quanta(name, 'dec', str(row['_DE']), source, unit = 'decdeg')
+        add_quanta(name, 'ora', str(row['oRA']), source)
+        add_quanta(name, 'odec', str(row['oDE']), source)
+    journal_events()
 
 if do_task('writeevents'): 
     files = []
