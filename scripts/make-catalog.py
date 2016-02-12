@@ -34,7 +34,7 @@ args = parser.parse_args()
 
 outdir = "../"
 
-linkdir = "https://tde.space/tde/"
+linkdir = "https://galcenter.space/gc-stars/"
 
 testsuffix = '.test' if args.test else ''
 
@@ -45,18 +45,10 @@ columnkey = [
     "name",
     "aliases",
     "discoverdate",
-    "maxdate",
-    "maxappmag",
-    "maxabsmag",
-    "host",
-    "snra",
-    "sndec",
+    "ra",
+    "dec",
     "instruments",
-    "redshift",
-    "hvel",
-    "lumdist",
     "claimedtype",
-    "photolink",
     "spectralink",
     "citations",
     "download",
@@ -68,18 +60,10 @@ header = [
     "Name",
     "Aliases",
     "Disc. Date",
-    "Max Date",
-    r"<em>m</em><sub>max</sub>",
-    r"<em>M</em><sub>max</sub>",
-    "Host Name",
     "R.A. (h:m:s)",
     "Dec. (d:m:s)",
     "Instruments/Bands",
-    r"<em>z</em>",
-    r"<em>v</em><sub>&#9737;</sub> (km/s)",
-    r"<em>d</em><sub>L</sub> (Mpc)",
     "Claimed Type",
-    "Phot.",
     "Spec.",
     "Citations",
     "",
@@ -91,18 +75,10 @@ titles = [
     "Name (IAU name preferred)",
     "Aliases",
     "Discovey Date (year-month-day)",
-    "Date of Maximum (year-month-day)",
-    "Maximum apparent AB magnitude",
-    "Maximum absolute AB magnitude",
-    "Host Name",
     "J2000 Right Ascension (h:m:s)",
     "J2000 Declination (d:m:s)",
     "List of Instruments and Bands",
-    "Redshift",
-    "Heliocentric velocity (km/s)",
-    "Luminosity distance (Mpc)",
     "Claimed Type",
-    "Photometry",
     "Spectra",
     "Citations",
     "Download",
@@ -128,9 +104,6 @@ sourcekeys = [
 
 with open('rep-folders.txt', 'r') as f:
     repfolders = f.read().splitlines()
-
-repyears = [int(repfolders[x][-4:]) for x in range(len(repfolders))]
-repyears[0] -= 1
 
 if len(columnkey) != len(header):
     print('Error: Header not same length as key list.')
@@ -264,17 +237,6 @@ def bandwavef(code):
 def utf8(x):
     return str(x, 'utf-8')
 
-def get_rep_folder(entry):
-    if 'discoveryear' not in entry:
-        return repfolders[0]
-    if not is_number(entry['discoveryear'][0]['value']):
-        print ('Error, discovery year is not a number!')
-        sys.exit()
-    for r, repyear in enumerate(repyears):
-        if int(entry['discoveryear'][0]['value']) <= repyear:
-            return repfolders[r]
-    return repfolders[0]
-
 def is_number(s):
     try:
         float(s)
@@ -332,20 +294,19 @@ for fcnt, eventfile in enumerate(sorted(files, key=lambda s: s.lower())):
 
     print(eventfile + ' [' + checksum + ']')
 
-    repfolder = get_rep_folder(catalog[entry])
     catalog[entry]['download'] = "<a class='dci' title='Download Data' href='" + linkdir + eventname + ".json' download></a>"
     photoavail = 'photometry' in catalog[entry]
     numphoto = len([x for x in catalog[entry]['photometry'] if 'upperlimit' not in x]) if photoavail else 0
     catalog[entry]['numphoto'] = numphoto
     if photoavail:
-        plotlink = "tde/" + eventname + ".html"
+        plotlink = "gc/" + eventname + ".html"
         catalog[entry]['photoplot'] = plotlink
         plotlink = "<a class='lci' href='" + plotlink + "' target='_blank'></a> "
         catalog[entry]['photolink'] = plotlink + str(numphoto)
     spectraavail = 'spectra' in catalog[entry]
     catalog[entry]['numspectra'] = len(catalog[entry]['spectra']) if spectraavail else 0
     if spectraavail:
-        plotlink = "tde/" + eventname + ".html"
+        plotlink = "gc/" + eventname + ".html"
         catalog[entry]['spectraplot'] = plotlink
         plotlink = "<a class='sci' href='" + plotlink + "' target='_blank'></a> "
         catalog[entry]['spectralink'] = plotlink + str(len(catalog[entry]['spectra']))
@@ -623,12 +584,11 @@ for fcnt, eventfile in enumerate(sorted(files, key=lambda s: s.lower())):
         #    fff.write(script)
         #with open(outdir + eventname + "-div.html", "w") as fff:
         #    fff.write(div)
-        returnlink = r'<br><a href="https://tde.space"><< Return to supernova catalog</a>'
-        repfolder = get_rep_folder(catalog[entry])
+        returnlink = r'<br><a href="https://galcenter.space"><< Return to supernova catalog</a>'
         dla = r'<a href="' + linkdir + eventname + r'.json" download>'
-        html = re.sub(r'(\<\/body\>)', dla + r'''<img src="https://tde.space/wp-content/plugins/transient-table/data-icon.png" width="22" height="22"/
+        html = re.sub(r'(\<\/body\>)', dla + r'''<img src="https://galcenter.space/wp-content/plugins/transient-table/data-icon.png" width="22" height="22"/
             style="vertical-align: text-bottom; margin-left: 230px;"></a>&nbsp;''' +
-            dla + r'Download data</a>&nbsp;' + dla + r'''<img src="https://tde.space/wp-content/plugins/transient-table/data-icon.png" width="22" height="22"
+            dla + r'Download data</a>&nbsp;' + dla + r'''<img src="https://galcenter.space/wp-content/plugins/transient-table/data-icon.png" width="22" height="22"
             style="vertical-align: text-bottom;"></a><br><br>\n\1''', html)
         if len(catalog[entry]['sources']):
             html = re.sub(r'(\<\/body\>)', r'<em>Sources of data:</em><br><table><tr><th width=30px>ID</th><th>Source</th></tr>\n\1', html)
@@ -656,7 +616,7 @@ for fcnt, eventfile in enumerate(sorted(files, key=lambda s: s.lower())):
     # Save this stuff because next line will delete it.
     if args.writecatalog:
         if 'photoplot' in catalog[entry]:
-            tdepages.append(catalog[entry]['aliases'] + ['https://tde.space/' + catalog[entry]['photoplot']])
+            tdepages.append(catalog[entry]['aliases'] + ['https://galcenter.space/' + catalog[entry]['photoplot']])
 
         if 'sources' in catalog[entry]:
             for sourcerow in catalog[entry]['sources']:
